@@ -195,12 +195,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             tickerContainer.isHidden = false
             quitButton.isHidden = false
             settingsButton.isHidden = false
+            tickerView.onTap = nil
             tickerView.setAllowTapToPause(true)
             tickerView.updateSpeed(prefs.scrollSpeed)
 
         case .settings:
             previewTimer?.invalidate()
             previewTimer = nil
+            tickerView.onTap = nil
             tickerContainer.isHidden = true
             settingsView.isHidden = false
 
@@ -210,6 +212,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             quitButton.isHidden = true
             settingsButton.isHidden = true
             tickerView.setAllowTapToPause(false)
+            tickerView.onTap = { [weak self] in
+                self?.endPreviewEarly()
+            }
         }
     }
 
@@ -283,6 +288,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
                 self.scheduleReturnToSettings(after: 1.5, previewID: previewID)
             }
         }
+    }
+
+    private func endPreviewEarly() {
+        guard mode == .speedPreview else { return }
+        activePreviewID = UUID()
+        previewTimer?.invalidate()
+        previewTimer = nil
+        setMode(.settings)
     }
 
     private func scheduleReturnToSettings(after seconds: TimeInterval, previewID: UUID) {

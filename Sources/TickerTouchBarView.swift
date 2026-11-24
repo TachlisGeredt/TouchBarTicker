@@ -2,6 +2,8 @@ import AppKit
 import QuartzCore
 
 final class TickerTouchBarView: NSView {
+    var onTap: (() -> Void)?
+
     private let containerLayer = CALayer()
     private let statusLabel = NSTextField(labelWithString: "")
 
@@ -98,16 +100,19 @@ final class TickerTouchBarView: NSView {
 
     override func touchesEnded(with event: NSEvent) {
         super.touchesEnded(with: event)
-        guard allowTapToPause, !quotes.isEmpty else { return }
-        if isPaused {
-            resumeScrolling()
-        } else {
-            pauseScrolling()
-        }
+        handleTap()
     }
 
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
+        handleTap()
+    }
+
+    private func handleTap() {
+        if let onTap = onTap {
+            onTap()
+            return
+        }
         guard allowTapToPause, !quotes.isEmpty else { return }
         if isPaused {
             resumeScrolling()
