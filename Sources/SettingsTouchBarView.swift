@@ -6,6 +6,10 @@ final class TouchBarPillButton: NSButton {
         didSet { updateAppearance() }
     }
 
+    override var title: String {
+        didSet { updateAppearance() }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setup()
@@ -26,8 +30,8 @@ final class TouchBarPillButton: NSButton {
     }
 
     override var intrinsicContentSize: NSSize {
-        let base = super.intrinsicContentSize
-        return NSSize(width: base.width + 18, height: 28)
+        let textWidth = ceil(attributedTitle.size().width)
+        return NSSize(width: max(textWidth + 20, 48), height: 28)
     }
 
     private func updateAppearance() {
@@ -51,12 +55,13 @@ final class TouchBarPillButton: NSButton {
 final class SettingsTouchBarView: NSView {
     var onCancel: (() -> Void)?
     var onSave: ((String, Double) -> Void)?
-    var onSpeedChangedForPreview: ((Double) -> Void)?
+    var onPreview: ((Double) -> Void)?
 
     private let closeButton = NSButton()
     private let speedSlider = NSSlider()
     private let feedScrollView = NSScrollView()
-    private let feedStackView = NSStackView()
+    private let feedDocumentView = NSView()
+    private let previewButton = NSButton()
     private let saveButton = NSButton()
 
     private var feedButtons: [TouchBarPillButton] = []
@@ -108,9 +113,9 @@ final class SettingsTouchBarView: NSView {
         speedSlider.minValue = TickerPreferences.minSpeed
         speedSlider.maxValue = TickerPreferences.maxSpeed
         speedSlider.doubleValue = currentSpeed
-        speedSlider.isContinuous = false // Fires when user releases finger -> triggers 2s preview
+        speedSlider.isContinuous = true
         speedSlider.target = self
-        speedSlider.action = #selector(handleSpeedSliderReleased)
+        speedSlider.action = #selector(handleSpeedSliderChanged)
         speedSlider.translatesAutoresizingMaskIntoConstraints = false
 
         let sliderContainer = NSStackView(views: [slowIcon, speedSlider, fastIcon])
@@ -119,45 +124,52 @@ final class SettingsTouchBarView: NSView {
         sliderContainer.spacing = 6
         sliderContainer.translatesAutoresizingMaskIntoConstraints = false
 
-        // 3. Middle horizontally scrollable Feed Picker
-        feedStackView.orientation = .horizontal
-        feedStackView.alignment = .centerY
-        feedStackView.spacing = 6
-        feedStackView.edgeInsets = NSEdgeInsets(top: 1, left: 2, bottom: 1, right: 2)
-        feedStackView.translatesAutoresizingMaskIntoConstraints = false
+        // 3. Middle horizontally scrollable Feed Picker (explicit frame-based documentView for reliable Touch Bar scrolling)
+        let spacing: CGFloat = 6
+        var xOffset: CGFloat = 2
 
         for feed in FeedCatalog.all {
             let btn = TouchBarPillButton(frame: .zero)
-            btn.title = feed.name
             btn.feedID = feed.id
+            btn.title = feed.name
             btn.target = self
             btn.action = #selector(handleFeedTapped(_:))
-            btn.translatesAutoresizingMaskIntoConstraints = false
-            btn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+            let size = btn.intrinsicContentSize
+            btn.frame = NSRect(x: xOffset, y: 1, width: size.width, height: 28)
             feedButtons.append(btn)
-            feedStackView.addArrangedSubview(btn)
+            feedDocumentView.addSubview(btn)
+            xOffset += size.width + spacing
         }
 
-        let documentContainer = NSView()
-        documentContainer.translatesAutoresizingMaskIntoConstraints = false
-        documentContainer.addSubview(feedStackView)
-        NSLayoutConstraint.activate([
-            feedStackView.leadingAnchor.constraint(equalTo: documentContainer.leadingAnchor),
-            feedStackView.trailingAnchor.constraint(equalTo: documentContainer.trailingAnchor),
-            feedStackView.topAnchor.constraint(equalTo: documentContainer.topAnchor),
-            feedStackView.bottomAnchor.constraint(equalTo: documentContainer.bottomAnchor),
-            documentContainer.heightAnchor.constraint(equalToConstant: 30)
-        ])
+        let totalContentWidth = max(xOffset - spacing + 2, 100)
+        feedDocumentView.frame = NSRect(x: 0, y: 0, width: totalContentWidth, height: 30)
 
-        feedScrollView.documentView = documentContainer
+        feedScrollView.documentView = feedDocumentView
         feedScrollView.hasHorizontalScroller = false
         feedScrollView.hasVerticalScroller = false
         feedScrollView.drawsBackground = false
         feedScrollView.horizontalScrollElasticity = .allowed
         feedScrollView.verticalScrollElasticity = .none
         feedScrollView.translatesAutoresizingMaskIntoConstraints = false
+        feedScrollView.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+        feedScrollView.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(250), for: .horizontal)
 
-        // 4. Far-right Save button
+        // 4. Right-side Preview & Save buttons
+        previewButton.isBordered = false
+        previewButton.wantsLayer = true
+        previewButton.layer?.cornerRadius = 6
+        previewButton.layer?.backgroundColor = NSColor(white: 0.28, alpha: 1.0).cgColor
+        previewButton.attributedTitle = NSAttributedString(
+            string: "Preview",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                .foregroundColor: NSColor.white
+            ]
+        )
+        previewButton.target = self
+        previewButton.action = #selector(handlePreview)
+        previewButton.translatesAutoresizingMaskIntoConstraints = false
+
         saveButton.isBordered = false
         saveButton.wantsLayer = true
         saveButton.layer?.cornerRadius = 6
@@ -176,7 +188,11 @@ final class SettingsTouchBarView: NSView {
         addSubview(closeButton)
         addSubview(sliderContainer)
         addSubview(feedScrollView)
+        addSubview(previewButton)
         addSubview(saveButton)
+
+        let minScrollWidth = feedScrollView.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
+        minScrollWidth.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
             closeButton.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -190,9 +206,15 @@ final class SettingsTouchBarView: NSView {
             sliderContainer.heightAnchor.constraint(equalToConstant: 30),
 
             feedScrollView.leadingAnchor.constraint(equalTo: sliderContainer.trailingAnchor, constant: 12),
-            feedScrollView.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -10),
+            feedScrollView.trailingAnchor.constraint(equalTo: previewButton.leadingAnchor, constant: -10),
             feedScrollView.topAnchor.constraint(equalTo: topAnchor),
             feedScrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            minScrollWidth,
+
+            previewButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -6),
+            previewButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            previewButton.widthAnchor.constraint(equalToConstant: 66),
+            previewButton.heightAnchor.constraint(equalToConstant: 28),
 
             saveButton.trailingAnchor.constraint(equalTo: trailingAnchor),
             saveButton.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -228,8 +250,7 @@ final class SettingsTouchBarView: NSView {
                   let selectedBtn = self.feedButtons.first(where: { $0.feedID == self.selectedFeedID }) else {
                 return
             }
-            self.feedScrollView.documentView?.layoutSubtreeIfNeeded()
-            selectedBtn.scrollToVisible(selectedBtn.bounds.insetBy(dx: -12, dy: 0))
+            self.feedDocumentView.scrollToVisible(selectedBtn.frame.insetBy(dx: -12, dy: 0))
         }
     }
 
@@ -242,9 +263,13 @@ final class SettingsTouchBarView: NSView {
         onSave?(selectedFeedID, currentSpeed)
     }
 
-    @objc private func handleSpeedSliderReleased() {
+    @objc private func handleSpeedSliderChanged() {
         currentSpeed = speedSlider.doubleValue
-        onSpeedChangedForPreview?(currentSpeed)
+    }
+
+    @objc private func handlePreview() {
+        currentSpeed = speedSlider.doubleValue
+        onPreview?(currentSpeed)
     }
 
     @objc private func handleFeedTapped(_ sender: TouchBarPillButton) {

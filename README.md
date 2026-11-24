@@ -9,9 +9,9 @@ A super lightweight, zero-dependency native macOS app that turns your MacBook To
 - **GPU-accelerated marquee**: Smooth scrolling with near-0% CPU usage between 30-second live price refreshes. Tap the ticker strip to pause/resume.
 - **100% Touch Bar Settings (`⚙`)**:
   - **Far left `✕`**: Close Settings without saving changes.
-  - **Left speed slider**: Drag and release to trigger a **2-second live preview** of the new scroll speed before automatically returning to Settings.
+  - **Left speed slider**: Adjusts ticker scroll speed.
   - **Middle scrollable picker**: Swipe sideways to choose between **Crypto**, **NASDAQ**, **NYSE**, **S&P 500**, **Dow Jones**, **FTSE 100**, **Nikkei 225**, **TSX**, **DAX**, and **ASX 200**.
-  - **Far right `Save`**: Persists your speed and selected feed and returns to the ticker.
+  - **Right `Preview` & `Save`**: Tap **`Preview`** to test the selected scroll speed live for 2 seconds (then return to Settings); tap **`Save`** to persist your settings and return to the ticker.
 
 ## Build & Install
 

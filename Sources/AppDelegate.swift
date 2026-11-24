@@ -63,7 +63,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private func presentTouchBar() {
         guard let bar = modalTouchBar else { return }
         DFRSystemModalShowsCloseBoxWhenFrontMost(false)
-        NSTouchBar.presentSystemModalTouchBar(bar, systemTrayItemIdentifier: .trayIdentifier)
+        let placementSel = #selector(NSTouchBar.presentSystemModalTouchBar(_:placement:systemTrayItemIdentifier:))
+        if NSTouchBar.responds(to: placementSel) {
+            NSTouchBar.presentSystemModalTouchBar(bar, placement: 1, systemTrayItemIdentifier: .trayIdentifier)
+        } else {
+            NSTouchBar.presentSystemModalTouchBar(bar, systemTrayItemIdentifier: .trayIdentifier)
+        }
     }
 
     func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
@@ -82,10 +87,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.black.cgColor
         container.translatesAutoresizingMaskIntoConstraints = false
+        container.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+        container.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(1), for: .horizontal)
 
-        // Stretch across the entire available Touch Bar width
-        let expandWidth = container.widthAnchor.constraint(equalToConstant: 1400)
-        expandWidth.priority = .defaultLow
+        // Stretch across the entire available Touch Bar width: priority 999 beats NSTouchBar's
+        // internal fitting priority (~500-750) while yielding to the required (1000) max-width constraint.
+        let expandWidth = container.widthAnchor.constraint(equalToConstant: 1085)
+        expandWidth.priority = NSLayoutConstraint.Priority(999)
         expandWidth.isActive = true
         container.heightAnchor.constraint(equalToConstant: 30).isActive = true
 
@@ -148,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         settingsView.onSave = { [weak self] feedID, speed in
             self?.saveSettings(feedID: feedID, speed: speed)
         }
-        settingsView.onSpeedChangedForPreview = { [weak self] previewSpeed in
+        settingsView.onPreview = { [weak self] previewSpeed in
             self?.startSpeedPreview(speed: previewSpeed)
         }
 
