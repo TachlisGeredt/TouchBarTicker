@@ -23,7 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private var refreshTimer: Timer?
     private var previewTimer: Timer?
     private var currentQuotes: [StockQuote] = []
+    private var quoteCache: [String: [StockQuote]] = [:]
     private var activeFetchID: UUID = UUID()
+    private var activePreviewID: UUID = UUID()
 
     private enum Mode {
         case ticker
@@ -156,8 +158,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         settingsView.onSave = { [weak self] feedID, speed in
             self?.saveSettings(feedID: feedID, speed: speed)
         }
-        settingsView.onPreview = { [weak self] previewSpeed in
-            self?.startSpeedPreview(speed: previewSpeed)
+        settingsView.onPreview = { [weak self] feedID, previewSpeed in
+            self?.startPreview(feedID: feedID, speed: previewSpeed)
         }
 
         container.addSubview(tickerContainer)
@@ -241,6 +243,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
 
     private func cancelSettings() {
         setMode(.ticker)
+        if !currentQuotes.isEmpty {
+            tickerView.update(quotes: currentQuotes, speed: prefs.scrollSpeed)
+        } else {
+            tickerView.showStatus("Loading \(prefs.selectedFeed.name)…")
+        }
     }
 
     private func saveSettings(feedID: String, speed: Double) {
@@ -251,26 +258,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         setMode(.ticker)
 
         if feedChanged {
-            currentQuotes = []
-            tickerView.showStatus("Loading \(prefs.selectedFeed.name)…")
+            if let cached = quoteCache[feedID], !cached.isEmpty {
+                currentQuotes = cached
+                tickerView.update(quotes: cached, speed: speed)
+            } else {
+                currentQuotes = []
+                tickerView.showStatus("Loading \(prefs.selectedFeed.name)…")
+            }
             fetchQuotesNow()
+        } else if !currentQuotes.isEmpty {
+            tickerView.update(quotes: currentQuotes, speed: speed)
         } else {
             tickerView.updateSpeed(speed)
         }
     }
 
-    private func startSpeedPreview(speed: Double) {
+    private func startPreview(feedID: String, speed: Double) {
         previewTimer?.invalidate()
+        let previewID = UUID()
+        activePreviewID = previewID
         setMode(.speedPreview)
 
-        if currentQuotes.isEmpty {
-            tickerView.showStatus("Previewing speed…")
-        } else {
-            tickerView.update(quotes: currentQuotes, speed: speed)
+        if let cached = quoteCache[feedID], !cached.isEmpty {
+            tickerView.update(quotes: cached, speed: speed)
+            scheduleReturnToSettings(after: 2.0, previewID: previewID)
+            return
         }
 
-        previewTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-            guard let self = self, self.mode == .speedPreview else { return }
+        let feed = FeedCatalog.feed(for: feedID)
+        tickerView.showStatus("Loading \(feed.name) preview…")
+
+        quoteService.fetchQuotes(for: feed.symbols) { [weak self] quotes in
+            guard let self = self,
+                  self.mode == .speedPreview,
+                  self.activePreviewID == previewID else { return }
+
+            if !quotes.isEmpty {
+                self.quoteCache[feedID] = quotes
+                self.tickerView.update(quotes: quotes, speed: speed)
+                self.scheduleReturnToSettings(after: 2.0, previewID: previewID)
+            } else {
+                self.tickerView.showStatus("Unable to load \(feed.name)")
+                self.scheduleReturnToSettings(after: 1.5, previewID: previewID)
+            }
+        }
+    }
+
+    private func scheduleReturnToSettings(after seconds: TimeInterval, previewID: UUID) {
+        previewTimer?.invalidate()
+        previewTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
+            guard let self = self,
+                  self.mode == .speedPreview,
+                  self.activePreviewID == previewID else { return }
             self.setMode(.settings)
         }
     }
@@ -294,6 +333,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             guard let self = self, self.activeFetchID == fetchID else { return }
             if !quotes.isEmpty {
                 self.currentQuotes = quotes
+                self.quoteCache[feed.id] = quotes
                 if self.mode == .ticker {
                     self.tickerView.update(quotes: quotes, speed: self.prefs.scrollSpeed)
                 }

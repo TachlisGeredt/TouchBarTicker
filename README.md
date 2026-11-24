@@ -13,10 +13,11 @@ A super lightweight, zero-dependency native macOS app that turns your MacBook To
   - **Middle scrollable picker**: Swipe sideways to choose between **Crypto**, **NASDAQ**, **NYSE**, **S&P 500**, **Dow Jones**, **FTSE 100**, **Nikkei 225**, **TSX**, **DAX**, and **ASX 200**.
   - **Right `Preview` & `Save`**: Tap **`Preview`** to test the selected scroll speed live for 2 seconds (then return to Settings); tap **`Save`** to persist your settings and return to the ticker.
 
-## Build & Install
+## Build, Install & Uninstall
 
 ```bash
 chmod +x build.sh
-./build.sh            # Builds build/TouchBarTicker.app
-./build.sh --install  # Builds and copies to /Applications/TouchBarTicker.app
+./build.sh              # Builds build/TouchBarTicker.app
+./build.sh --install    # Builds and installs to /Applications/TouchBarTicker.app
+./build.sh --uninstall  # Quits app, removes /Applications/TouchBarTicker.app, and clears saved preferences
 ```

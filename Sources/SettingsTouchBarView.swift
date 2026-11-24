@@ -55,7 +55,7 @@ final class TouchBarPillButton: NSButton {
 final class SettingsTouchBarView: NSView {
     var onCancel: (() -> Void)?
     var onSave: ((String, Double) -> Void)?
-    var onPreview: ((Double) -> Void)?
+    var onPreview: ((String, Double) -> Void)?
 
     private let closeButton = NSButton()
     private let speedSlider = NSSlider()
@@ -269,7 +269,7 @@ final class SettingsTouchBarView: NSView {
 
     @objc private func handlePreview() {
         currentSpeed = speedSlider.doubleValue
-        onPreview?(currentSpeed)
+        onPreview?(selectedFeedID, currentSpeed)
     }
 
     @objc private func handleFeedTapped(_ sender: TouchBarPillButton) {

@@ -4,6 +4,31 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$ROOT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/TouchBarTicker.app"
+INSTALL_PATH="/Applications/TouchBarTicker.app"
+BUNDLE_ID="com.touchbarticker.app"
+
+if [[ "${1:-}" == "--uninstall" ]]; then
+    echo "Uninstalling TouchBarTicker..."
+
+    if pgrep -x "TouchBarTicker" >/dev/null 2>&1; then
+        osascript -e 'tell application "TouchBarTicker" to quit' >/dev/null 2>&1 || true
+        sleep 0.5
+        pkill -x "TouchBarTicker" >/dev/null 2>&1 || true
+    fi
+
+    if [[ -d "$INSTALL_PATH" ]]; then
+        rm -rf "$INSTALL_PATH"
+        echo "Removed $INSTALL_PATH"
+    else
+        echo "$INSTALL_PATH was not installed."
+    fi
+
+    defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+    echo "Cleared saved preferences."
+    echo "Uninstalled TouchBarTicker."
+    exit 0
+fi
+
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -134,7 +159,6 @@ codesign --force --deep --sign - "$APP_BUNDLE" >/dev/null 2>&1 || true
 echo "Built: $APP_BUNDLE"
 
 if [[ "${1:-}" == "--install" ]]; then
-    INSTALL_PATH="/Applications/TouchBarTicker.app"
     echo "Installing to $INSTALL_PATH..."
 
     # Cleanly quit any running instance before replacing the bundle
