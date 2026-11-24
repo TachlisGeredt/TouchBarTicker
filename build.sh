@@ -134,8 +134,25 @@ codesign --force --deep --sign - "$APP_BUNDLE" >/dev/null 2>&1 || true
 echo "Built: $APP_BUNDLE"
 
 if [[ "${1:-}" == "--install" ]]; then
-    echo "Installing to /Applications/TouchBarTicker.app..."
-    rm -rf /Applications/TouchBarTicker.app
-    cp -R "$APP_BUNDLE" /Applications/TouchBarTicker.app
+    INSTALL_PATH="/Applications/TouchBarTicker.app"
+    echo "Installing to $INSTALL_PATH..."
+
+    # Cleanly quit any running instance before replacing the bundle
+    if pgrep -x "TouchBarTicker" >/dev/null 2>&1; then
+        osascript -e 'tell application "TouchBarTicker" to quit' >/dev/null 2>&1 || true
+        sleep 0.5
+        pkill -x "TouchBarTicker" >/dev/null 2>&1 || true
+    fi
+
+    rm -rf "$INSTALL_PATH"
+    ditto "$APP_BUNDLE" "$INSTALL_PATH"
+    xattr -dr com.apple.quarantine "$INSTALL_PATH" >/dev/null 2>&1 || true
+
+    # Refresh LaunchServices so Finder and Spotlight pick up updates immediately
+    LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+    if [[ -x "$LSREGISTER" ]]; then
+        "$LSREGISTER" -f "$INSTALL_PATH" >/dev/null 2>&1 || true
+    fi
+
     echo "Installed! Open TouchBarTicker from Applications or Spotlight."
 fi
