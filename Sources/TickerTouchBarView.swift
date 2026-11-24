@@ -10,6 +10,7 @@ final class TickerTouchBarView: NSView {
     private var pointsPerSecond: Double = TickerPreferences.defaultSpeed
     private var isPaused: Bool = false
     private var allowTapToPause: Bool = true
+    private var lastLaidOutSize: NSSize = .zero
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -48,6 +49,8 @@ final class TickerTouchBarView: NSView {
 
     override func layout() {
         super.layout()
+        guard bounds.size != lastLaidOutSize else { return }
+        lastLaidOutSize = bounds.size
         if !quotes.isEmpty {
             rebuildMarquee(preserveProgress: true)
         }

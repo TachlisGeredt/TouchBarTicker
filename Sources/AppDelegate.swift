@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private var quitButton: NSButton!
     private var tickerView: TickerTouchBarView!
     private var settingsButton: NSButton!
-    private var previewBadge: NSTextField!
 
     private var settingsView: SettingsTouchBarView!
 
@@ -110,20 +109,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         tickerView.translatesAutoresizingMaskIntoConstraints = false
         tickerView.showStatus("Loading \(prefs.selectedFeed.name)…")
 
-        previewBadge = NSTextField(labelWithString: "Preview")
-        previewBadge.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        previewBadge.textColor = NSColor(srgbRed: 0.19, green: 0.82, blue: 0.35, alpha: 1.0)
-        previewBadge.alignment = .center
-        previewBadge.wantsLayer = true
-        previewBadge.layer?.backgroundColor = NSColor(white: 0.16, alpha: 1.0).cgColor
-        previewBadge.layer?.cornerRadius = 6
-        previewBadge.translatesAutoresizingMaskIntoConstraints = false
-        previewBadge.isHidden = true
-
         tickerContainer.addSubview(quitButton)
         tickerContainer.addSubview(tickerView)
         tickerContainer.addSubview(settingsButton)
-        tickerContainer.addSubview(previewBadge)
 
         NSLayoutConstraint.activate([
             quitButton.leadingAnchor.constraint(equalTo: tickerContainer.leadingAnchor),
@@ -135,11 +123,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             settingsButton.centerYAnchor.constraint(equalTo: tickerContainer.centerYAnchor),
             settingsButton.widthAnchor.constraint(equalToConstant: 38),
             settingsButton.heightAnchor.constraint(equalToConstant: 28),
-
-            previewBadge.trailingAnchor.constraint(equalTo: tickerContainer.trailingAnchor),
-            previewBadge.centerYAnchor.constraint(equalTo: tickerContainer.centerYAnchor),
-            previewBadge.widthAnchor.constraint(equalToConstant: 64),
-            previewBadge.heightAnchor.constraint(equalToConstant: 24),
 
             tickerView.leadingAnchor.constraint(equalTo: quitButton.trailingAnchor, constant: 8),
             tickerView.trailingAnchor.constraint(equalTo: settingsButton.leadingAnchor, constant: -8),
@@ -212,7 +195,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             tickerContainer.isHidden = false
             quitButton.isHidden = false
             settingsButton.isHidden = false
-            previewBadge.isHidden = true
             tickerView.setAllowTapToPause(true)
             tickerView.updateSpeed(prefs.scrollSpeed)
 
@@ -227,7 +209,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             tickerContainer.isHidden = false
             quitButton.isHidden = true
             settingsButton.isHidden = true
-            previewBadge.isHidden = false
             tickerView.setAllowTapToPause(false)
         }
     }
