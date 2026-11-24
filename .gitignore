@@ -1,0 +1,11 @@
+# Build outputs & compiled binaries
+build/
+*.app
+*.o
+*.dSYM/
+*.swiftmodule
+*.swiftdoc
+
+# macOS system files
+.DS_Store
+._*
