@@ -7,27 +7,58 @@ APP_BUNDLE="$BUILD_DIR/TouchBarTicker.app"
 INSTALL_PATH="/Applications/TouchBarTicker.app"
 BUNDLE_ID="com.touchbarticker.app"
 
-if [[ "${1:-}" == "--uninstall" ]]; then
-    echo "Uninstalling TouchBarTicker..."
-
+quit_running_app() {
     if pgrep -x "TouchBarTicker" >/dev/null 2>&1; then
         osascript -e 'tell application "TouchBarTicker" to quit' >/dev/null 2>&1 || true
         sleep 0.5
         pkill -x "TouchBarTicker" >/dev/null 2>&1 || true
     fi
+}
 
-    if [[ -d "$INSTALL_PATH" ]]; then
-        rm -rf "$INSTALL_PATH"
-        echo "Removed $INSTALL_PATH"
-    else
-        echo "$INSTALL_PATH was not installed."
-    fi
+case "${1:-}" in
+    --uninstall)
+        echo "Uninstalling TouchBarTicker..."
+        quit_running_app
 
-    defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
-    echo "Cleared saved preferences."
-    echo "Uninstalled TouchBarTicker."
-    exit 0
-fi
+        if [[ -d "$INSTALL_PATH" ]]; then
+            rm -rf "$INSTALL_PATH"
+            echo "Removed $INSTALL_PATH"
+        else
+            echo "$INSTALL_PATH was not installed."
+        fi
+
+        defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+        echo "Cleared saved preferences."
+        echo "Uninstalled TouchBarTicker."
+        exit 0
+        ;;
+    --update)
+        echo "Updating TouchBarTicker..."
+        quit_running_app
+
+        if [[ -d "$INSTALL_PATH" ]]; then
+            rm -rf "$INSTALL_PATH"
+            echo "Removed current version at $INSTALL_PATH"
+        fi
+
+        echo "Pulling latest changes..."
+        git -C "$ROOT_DIR" pull
+
+        # Re-exec build.sh so any updates to build.sh itself are used for the reinstall
+        exec "$ROOT_DIR/build.sh" --install
+        ;;
+    ""|--install)
+        ;;
+    -h|--help)
+        echo "Usage: ./build.sh [--install | --update | --uninstall]"
+        exit 0
+        ;;
+    *)
+        echo "Unknown option: $1" >&2
+        echo "Usage: ./build.sh [--install | --update | --uninstall]" >&2
+        exit 1
+        ;;
+esac
 
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -162,11 +193,7 @@ if [[ "${1:-}" == "--install" ]]; then
     echo "Installing to $INSTALL_PATH..."
 
     # Cleanly quit any running instance before replacing the bundle
-    if pgrep -x "TouchBarTicker" >/dev/null 2>&1; then
-        osascript -e 'tell application "TouchBarTicker" to quit' >/dev/null 2>&1 || true
-        sleep 0.5
-        pkill -x "TouchBarTicker" >/dev/null 2>&1 || true
-    fi
+    quit_running_app
 
     rm -rf "$INSTALL_PATH"
     ditto "$APP_BUNDLE" "$INSTALL_PATH"
